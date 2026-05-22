@@ -1,0 +1,225 @@
+/* ============================================================
+   Medisun Care — design system
+   Built for adults 65+: large type, huge tap targets, high
+   contrast, calm warmth. One clear action per screen.
+   ============================================================ */
+
+:root {
+  /* Sunrise palette */
+  --sun: #FF9E45;
+  --sun-deep: #F57C2B;
+  --sky-top: #FFF7EC;
+  --sky-warm: #FFE6C4;
+  --dawn-pink: #FFD2C2;
+  --ink: #2B2118;
+  --ink-soft: #6B5E50;
+  --cloud: #FFFFFF;
+  --leaf: #2F8F5B;
+  --leaf-soft: #E4F3E9;
+  --alert: #C2452B;
+  --alert-soft: #FBE6E1;
+  --line: #EADBC4;
+  --shadow: 0 6px 22px rgba(122, 86, 36, 0.16);
+  --shadow-lg: 0 14px 40px rgba(122, 86, 36, 0.22);
+
+  /* Type — deliberately large baseline */
+  --fs-base: 20px;
+  --radius: 22px;
+  --tap: 64px;
+
+  font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--fs-base);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; }
+
+body {
+  background: var(--sky-warm);
+  line-height: 1.5;
+  overscroll-behavior: none;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+button { cursor: pointer; border: none; background: none; }
+
+/* Phone frame — the app always renders inside a centered column */
+#root {
+  display: flex;
+  justify-content: center;
+}
+
+.phone {
+  width: 100%;
+  max-width: 460px;
+  min-height: 100dvh;
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-warm) 60%, var(--dawn-pink) 100%);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 60px rgba(122, 86, 36, 0.18);
+  overflow: hidden;
+}
+
+/* ---- Layout primitives ---- */
+.screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 22px 22px calc(22px + env(safe-area-inset-bottom));
+  gap: 18px;
+}
+
+.screen-scroll { overflow-y: auto; }
+
+.grow { flex: 1; }
+
+.center-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 14px;
+}
+
+/* ---- Typography ---- */
+h1 { font-size: 32px; line-height: 1.2; font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 25px; line-height: 1.25; font-weight: 800; }
+h3 { font-size: 21px; font-weight: 700; }
+.lead { font-size: 21px; color: var(--ink-soft); }
+.muted { color: var(--ink-soft); }
+.tiny { font-size: 15px; color: var(--ink-soft); }
+.big-number { font-size: 56px; font-weight: 800; line-height: 1; }
+
+/* ---- Buttons — minimum 64px tall, easy to hit ---- */
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: var(--tap);
+  width: 100%;
+  padding: 16px 22px;
+  border-radius: var(--radius);
+  font-size: 22px;
+  font-weight: 700;
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary {
+  background: linear-gradient(180deg, var(--sun) 0%, var(--sun-deep) 100%);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+.btn-secondary {
+  background: var(--cloud);
+  color: var(--ink);
+  border: 2.5px solid var(--line);
+}
+.btn-ghost { background: transparent; color: var(--ink-soft); font-weight: 600; min-height: 52px; }
+.btn:disabled { opacity: 0.45; filter: grayscale(0.3); }
+.btn-lg { font-size: 24px; min-height: 74px; }
+
+/* ---- Cards ---- */
+.card {
+  background: var(--cloud);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.card-flat {
+  background: var(--cloud);
+  border-radius: var(--radius);
+  padding: 18px;
+  border: 2px solid var(--line);
+}
+
+/* ---- Inputs ---- */
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field label { font-size: 18px; font-weight: 700; color: var(--ink-soft); }
+.input {
+  min-height: 60px;
+  border: 2.5px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 16px;
+  background: #fff;
+  font-size: 21px;
+  color: var(--ink);
+}
+.input:focus { outline: 3px solid var(--sun); border-color: var(--sun); }
+
+/* ---- Pills / badges ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.pill-leaf { background: var(--leaf-soft); color: var(--leaf); }
+.pill-sun { background: var(--sky-warm); color: var(--sun-deep); }
+.pill-alert { background: var(--alert-soft); color: var(--alert); }
+
+/* ---- Progress dots ---- */
+.dots { display: flex; gap: 8px; justify-content: center; }
+.dot { width: 11px; height: 11px; border-radius: 999px; background: var(--line); }
+.dot.on { background: var(--sun); width: 28px; }
+
+/* ---- Top bar ---- */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+}
+.back {
+  width: 52px; height: 52px;
+  border-radius: 16px;
+  background: var(--cloud);
+  border: 2px solid var(--line);
+  font-size: 26px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ---- Misc ---- */
+.row { display: flex; gap: 12px; align-items: center; }
+.row-between { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.divider { height: 2px; background: var(--line); border-radius: 2px; }
+
+.fade-in { animation: fadeIn 0.35s ease both; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+.pop { animation: pop 0.4s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes pop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* selectable choice tiles */
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 14px 18px;
+  border-radius: 18px;
+  background: #fff;
+  border: 3px solid var(--line);
+  font-size: 21px;
+  font-weight: 700;
+  text-align: left;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.choice .emoji { font-size: 30px; }
+.choice.selected { border-color: var(--sun); background: var(--sky-warm); }
+
+a { color: var(--sun-deep); }
