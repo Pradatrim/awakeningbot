@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TopBar } from '../components/ui';
 import Qr from '../components/Qr';
-import { enrollFromProvider } from '../store/store';
+import { api } from '../api';
 import type { Invite } from '../store/types';
 
 /**
@@ -14,8 +14,10 @@ import type { Invite } from '../store/types';
 export default function Provider() {
   const nav = useNavigate();
   const [invite, setInvite] = useState<Invite | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [patientName, setPatientName] = useState('');
 
-  // Chart fields — pre-filled from the practice EHR in production.
   const [firstName, setFirst] = useState('');
   const [lastName, setLast] = useState('');
   const [dob, setDob] = useState('');
@@ -34,13 +36,22 @@ export default function Provider() {
 
   const ready = firstName && lastName && dob && phone && mbi && provider && diagnosis;
 
-  function placeOrder() {
-    const inv = enrollFromProvider({
-      patient: { firstName, lastName, dob, phone, mbi },
-      orderingProvider: provider,
-      diagnosis,
-    });
-    setInvite(inv);
+  async function placeOrder() {
+    setBusy(true);
+    setError('');
+    try {
+      const r = await api.enrollProvider({
+        patient: { firstName, lastName, dob, phone, mbi },
+        orderingProvider: provider,
+        diagnosis,
+      });
+      setPatientName(firstName);
+      setInvite(r.invite);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (invite) {
@@ -50,7 +61,7 @@ export default function Provider() {
         <TopBar title="Order placed" onBack={() => nav('/')} />
         <div className="center-col">
           <span className="pill pill-leaf">✓ RPM order created</span>
-          <h2>Have {firstName} scan this</h2>
+          <h2>Have {patientName} scan this</h2>
           <p className="muted" style={{ fontSize: 18 }}>
             The app opens already as them — no typing, no account to make. Walk them through it
             before they leave the room.
@@ -70,8 +81,8 @@ export default function Provider() {
             <span className="pill pill-sun">pending-order</span>
           </div>
           <p className="tiny">
-            The order is on file, so {firstName} flips to <strong>covered</strong> the moment they
-            finish e-consent. Billing never fires before that.
+            The order is on file, so {patientName} flips to <strong>covered</strong> the moment
+            they finish e-consent. Billing never fires before that.
           </p>
         </div>
 
@@ -103,8 +114,13 @@ export default function Provider() {
         <Field label="Diagnosis / medical necessity" value={diagnosis} onChange={setDiagnosis} />
       </div>
 
-      <button className="btn btn-primary btn-lg" disabled={!ready} onClick={placeOrder}>
-        Place order & create invite
+      {error && (
+        <p className="tiny" style={{ color: 'var(--alert)' }}>
+          {error}
+        </p>
+      )}
+      <button className="btn btn-primary btn-lg" disabled={!ready || busy} onClick={placeOrder}>
+        {busy ? 'Placing order…' : 'Place order & create invite'}
       </button>
     </div>
   );

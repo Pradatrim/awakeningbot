@@ -1,31 +1,37 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sun from '../components/Sun';
-import { signOut, today, useStore } from '../store/store';
+import { Loading } from '../components/ui';
+import { hasSession, refreshMe, signOut, todayISO, useCurrentPatient } from '../store/store';
 import type { PatientState } from '../store/types';
 
 /**
- * The daily app — the reason to open Medisun every morning.
- * The sunrise rises as the check-in is completed and the streak
- * grows. State-aware so a pending-order patient still has a full
- * experience while their order is finalized.
+ * The daily app — the reason to open Medisun every morning. The
+ * sunrise rises as the check-in is completed and the streak grows.
  */
 export default function Home() {
   const nav = useNavigate();
-  const patient = useStore((s) =>
-    s.currentPatientId ? s.patients[s.currentPatientId] : undefined,
-  );
+  const patient = useCurrentPatient();
   const [share, setShare] = useState(false);
 
   useEffect(() => {
-    if (!patient) nav('/');
+    if (patient) return;
+    if (!hasSession()) {
+      nav('/');
+      return;
+    }
+    refreshMe().then((p) => {
+      if (!p) nav('/');
+    });
   }, [patient, nav]);
-  if (!patient) return null;
 
-  const log = patient.logs.find((l) => l.date === today());
+  if (!patient) return <Loading label="Opening your app…" />;
+
+  const log = patient.logs.find((l) => l.date === todayISO());
   const done = [log?.mood !== undefined, log?.tookMeds !== undefined, log?.bp !== undefined];
-  const progress = done.filter(Boolean).length / 3;
-  const complete = progress === 1;
+  const doneCount = done.filter(Boolean).length;
+  const progress = doneCount / 3;
+  const complete = doneCount === 3;
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -53,7 +59,6 @@ export default function Home() {
 
       <StateBanner state={patient.state} eligCost={patient.eligibility?.monthlyCost} />
 
-      {/* the sunrise */}
       <div className="card" style={{ padding: 14, overflow: 'hidden' }}>
         <Sun progress={complete ? 1 : 0.18 + progress * 0.62} />
         <p
@@ -67,15 +72,12 @@ export default function Home() {
         >
           {complete
             ? `🌅 Today's sunrise is complete, ${patient.firstName}!`
-            : progress === 0
+            : doneCount === 0
               ? 'Your sunrise is waiting for you.'
-              : `Almost there — ${3 - done.filter(Boolean).length} step${
-                  3 - done.filter(Boolean).length === 1 ? '' : 's'
-                } to go.`}
+              : `Almost there — ${3 - doneCount} step${3 - doneCount === 1 ? '' : 's'} to go.`}
         </p>
       </div>
 
-      {/* streak */}
       <div className="card row-between">
         <div className="row">
           <span style={{ fontSize: 40 }}>🔥</span>
@@ -88,7 +90,11 @@ export default function Home() {
             </p>
           </div>
         </div>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => setShare(!share)}>
+        <button
+          className="btn btn-secondary"
+          style={{ width: 'auto' }}
+          onClick={() => setShare(!share)}
+        >
           Share 🎉
         </button>
       </div>
@@ -107,7 +113,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* primary action */}
       {complete ? (
         <div className="card-flat center-col">
           <span style={{ fontSize: 34 }}>✅</span>
@@ -116,7 +121,7 @@ export default function Home() {
         </div>
       ) : (
         <button className="btn btn-primary btn-lg" onClick={() => nav('/checkin')}>
-          {progress === 0 ? "☀️ Start today's check-in" : '☀️ Finish my check-in'}
+          {doneCount === 0 ? "☀️ Start today's check-in" : '☀️ Finish my check-in'}
         </button>
       )}
 
@@ -127,7 +132,7 @@ export default function Home() {
           label="My care team"
           onClick={() =>
             alert(
-              `Your care team is reviewing your numbers daily.\n\nWe'll have a nurse call ${patient.phone} if anything needs attention. You can also request a call any time.`,
+              `Your care team reviews your numbers every day.\n\nIf anything needs attention they call ${patient.phone}. You can request a call any time.`,
             )
           }
         />

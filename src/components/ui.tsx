@@ -14,6 +14,15 @@ export function TopBar({ title, onBack }: { title?: string; onBack?: () => void 
   );
 }
 
+export function Loading({ label = 'Loading…' }: { label?: string }) {
+  return (
+    <div className="screen center-col fade-in" style={{ justifyContent: 'center' }}>
+      <div className="pop" style={{ fontSize: 48 }}>🌅</div>
+      <h2>{label}</h2>
+    </div>
+  );
+}
+
 export function Dots({ count, active }: { count: number; active: number }) {
   return (
     <div className="dots" aria-label={`Step ${active + 1} of ${count}`}>

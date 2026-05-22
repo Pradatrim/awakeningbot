@@ -2,9 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TopBar, Choice } from '../components/ui';
 import Qr from '../components/Qr';
-import { enrollFromSpecialist, fulfillOrder } from '../store/store';
-import { runEligibilityCheck } from '../store/eligibility';
-import type { EligibilityResult, Invite, OrderSource } from '../store/types';
+import { api } from '../api';
+import type { Eligibility, Invite } from '../store/types';
 
 type Step = 'intake' | 'result' | 'done';
 
@@ -12,11 +11,8 @@ const SPECIALIST = 'M. Alvarez (enrollment specialist)';
 
 /**
  * Flow B — the enrollment specialist's console.
- * The patient called in from an ad. The specialist does intake,
- * runs the eligibility check live on the call, solves the
- * physician order, captures verbal consent, and texts a
- * pre-bound link. No dead ends — ineligible callers are routed
- * to the free self-tracking tier.
+ * Intake, a live X12 eligibility check on the call, order
+ * solving, verbal consent, and a texted pre-bound link.
  */
 export default function Specialist() {
   const nav = useNavigate();
@@ -28,10 +24,11 @@ export default function Specialist() {
   const [phone, setPhone] = useState('');
   const [mbi, setMbi] = useState('');
 
-  const [checking, setChecking] = useState(false);
-  const [elig, setElig] = useState<EligibilityResult | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [elig, setElig] = useState<Eligibility | null>(null);
 
-  const [orderPlan, setOrderPlan] = useState<OrderSource | null>(null);
+  const [orderPlan, setOrderPlan] = useState<string | null>(null);
   const [verbalConsent, setVerbalConsent] = useState(false);
   const [invite, setInvite] = useState<Invite | null>(null);
   const [createdPatientId, setCreatedPatientId] = useState<string | null>(null);
@@ -46,25 +43,61 @@ export default function Specialist() {
   }
 
   const intakeReady = firstName && lastName && dob && phone && mbi;
+  const patientFields = { firstName, lastName, dob, phone, mbi };
 
   async function runCheck() {
-    setChecking(true);
-    const result = await runEligibilityCheck(mbi);
-    setElig(result);
-    setChecking(false);
-    setStep('result');
+    setBusy(true);
+    setError('');
+    try {
+      const result = await api.checkEligibility({ mbi, firstName, lastName, dob });
+      setElig(result);
+      setStep('result');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function sendLink() {
+  async function sendLink() {
     if (!elig) return;
-    const inv = enrollFromSpecialist({
-      patient: { firstName, lastName, dob, phone, mbi },
-      eligibility: elig,
-      consent: { givenAt: new Date().toISOString(), method: 'verbal', documentedBy: SPECIALIST },
-    });
-    setInvite(inv);
-    setCreatedPatientId(inv.patientId);
-    setStep('done');
+    setBusy(true);
+    setError('');
+    try {
+      const r = await api.enrollSpecialist({
+        patient: patientFields,
+        eligibility: elig,
+        consent: { givenAt: new Date().toISOString(), method: 'verbal', documentedBy: SPECIALIST },
+      });
+      setInvite(r.invite);
+      setCreatedPatientId(r.patient.id);
+      setStep('done');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function fulfill() {
+    if (!createdPatientId) return;
+    setBusy(true);
+    try {
+      await api.fulfillOrder({
+        patientId: createdPatientId,
+        source: orderPlan === 'doctor-referral' ? 'doctor-referral' : 'medisun-clinician',
+        orderingProvider:
+          orderPlan === 'doctor-referral'
+            ? "Caller's referring physician"
+            : 'Medisun-affiliated clinician',
+        diagnosis: 'Chronic condition — RPM (established on visit)',
+      });
+      setOrderFulfilled(true);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   /* ---------- intake ---------- */
@@ -89,16 +122,17 @@ export default function Specialist() {
           <SField label="Medicare number (MBI)" value={mbi} onChange={setMbi} />
         </div>
 
-        <button
-          className="btn btn-primary btn-lg"
-          disabled={!intakeReady || checking}
-          onClick={runCheck}
-        >
-          {checking ? 'Checking Medicare…' : 'Run eligibility check'}
+        {error && (
+          <p className="tiny" style={{ color: 'var(--alert)' }}>
+            {error}
+          </p>
+        )}
+        <button className="btn btn-primary btn-lg" disabled={!intakeReady || busy} onClick={runCheck}>
+          {busy ? 'Checking Medicare…' : 'Run eligibility check (X12 270/271)'}
         </button>
-        {checking && (
+        {busy && (
           <p className="tiny" style={{ textAlign: 'center' }}>
-            Contacting the clearinghouse — this takes a few seconds.
+            Submitting the 270 to the clearinghouse — this takes a few seconds.
           </p>
         )}
       </div>
@@ -111,7 +145,7 @@ export default function Specialist() {
       <div className="screen screen-scroll fade-in">
         <TopBar title="Eligibility result" onBack={() => setStep('intake')} />
 
-        <div className={`card stack`}>
+        <div className="card stack">
           <span className={`pill ${elig.eligible ? 'pill-leaf' : 'pill-alert'}`}>
             {elig.eligible ? '✓ Covered' : '✕ Not covered'}
           </span>
@@ -139,7 +173,6 @@ export default function Specialist() {
               selected={orderPlan === 'medisun-clinician'}
               onClick={() => setOrderPlan('medisun-clinician')}
             />
-
             <button
               className={`choice${verbalConsent ? ' selected' : ''}`}
               onClick={() => setVerbalConsent(!verbalConsent)}
@@ -150,13 +183,17 @@ export default function Specialist() {
                 Caller gave verbal consent — documented by {SPECIALIST}
               </span>
             </button>
-
+            {error && (
+              <p className="tiny" style={{ color: 'var(--alert)' }}>
+                {error}
+              </p>
+            )}
             <button
               className="btn btn-primary btn-lg"
-              disabled={!orderPlan || !verbalConsent}
+              disabled={!orderPlan || !verbalConsent || busy}
               onClick={sendLink}
             >
-              Text the pre-bound link
+              {busy ? 'Sending…' : 'Text the pre-bound link'}
             </button>
           </>
         ) : (
@@ -165,8 +202,8 @@ export default function Specialist() {
               No dead end — set the caller up on the free self-tracking tier so they still get a
               daily check-in.
             </p>
-            <button className="btn btn-primary btn-lg" onClick={sendLink}>
-              Route to the free tier & send link
+            <button className="btn btn-primary btn-lg" disabled={busy} onClick={sendLink}>
+              {busy ? 'Sending…' : 'Route to the free tier & send link'}
             </button>
           </>
         )}
@@ -199,9 +236,7 @@ export default function Specialist() {
           <div className="card-flat stack">
             <div className="row-between">
               <span className="muted">Patient state</span>
-              <span className="pill pill-sun">
-                {orderFulfilled ? 'covered' : 'pending-order'}
-              </span>
+              <span className="pill pill-sun">{orderFulfilled ? 'covered' : 'pending-order'}</span>
             </div>
             {orderFulfilled ? (
               <p className="tiny">
@@ -213,23 +248,8 @@ export default function Specialist() {
                   No order yet — nothing is billed. When the establishing visit produces the
                   order, the patient flips to covered.
                 </p>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => {
-                    if (!createdPatientId) return;
-                    fulfillOrder({
-                      patientId: createdPatientId,
-                      source: orderPlan ?? 'medisun-clinician',
-                      orderingProvider:
-                        orderPlan === 'doctor-referral'
-                          ? "Caller's referring physician"
-                          : 'Medisun-affiliated clinician',
-                      diagnosis: 'Chronic condition — RPM (established on visit)',
-                    });
-                    setOrderFulfilled(true);
-                  }}
-                >
-                  ✓ Mark establishing visit complete
+                <button className="btn btn-secondary" disabled={busy} onClick={fulfill}>
+                  {busy ? 'Recording…' : '✓ Mark establishing visit complete'}
                 </button>
               </>
             )}

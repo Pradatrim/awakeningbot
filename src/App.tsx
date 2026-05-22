@@ -7,6 +7,9 @@ import Join from './pages/Join';
 import Home from './pages/Home';
 import CheckIn from './pages/CheckIn';
 import Vitals from './pages/Vitals';
+import ClinicianLogin from './pages/ClinicianLogin';
+import ClinicianPanel from './pages/ClinicianPanel';
+import ClinicianPatient from './pages/ClinicianPatient';
 
 export default function App() {
   return (
@@ -20,6 +23,9 @@ export default function App() {
         <Route path="/home" element={<Home />} />
         <Route path="/checkin" element={<CheckIn />} />
         <Route path="/vitals" element={<Vitals />} />
+        <Route path="/clinician/login" element={<ClinicianLogin />} />
+        <Route path="/clinician" element={<ClinicianPanel />} />
+        <Route path="/clinician/patient/:id" element={<ClinicianPatient />} />
         <Route path="*" element={<Landing />} />
       </Routes>
     </div>

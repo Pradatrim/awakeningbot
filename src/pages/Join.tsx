@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Dots } from '../components/ui';
 import Sun from '../components/Sun';
-import { finishOnboarding, patchPatient, useStore } from '../store/store';
-import { runEligibilityCheck } from '../store/eligibility';
-import type { EligibilityResult, PatientState } from '../store/types';
+import { api } from '../api';
+import { adoptSession } from '../store/store';
+import type { Eligibility, Invite, Patient } from '../store/types';
 
 type Step = 'welcome' | 'confirm' | 'eligibility' | 'consent' | 'done';
 const STEPS: Step[] = ['welcome', 'confirm', 'eligibility', 'consent'];
@@ -18,30 +18,52 @@ export default function Join() {
   const { token } = useParams();
   const nav = useNavigate();
 
-  const invite = useStore((s) => (token ? s.invites[token] : undefined));
-  const patient = useStore((s) => (invite ? s.patients[invite.patientId] : undefined));
+  const [data, setData] = useState<{ invite: Invite; patient: Patient } | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const [step, setStep] = useState<Step>('welcome');
-  const [first, setFirst] = useState(() => patient?.firstName ?? '');
-  const [last, setLast] = useState(() => patient?.lastName ?? '');
-  const [dob, setDob] = useState(() => patient?.dob ?? '');
-  const [phone, setPhone] = useState(() => patient?.phone ?? '');
-  const [mbi, setMbi] = useState(() => patient?.mbi ?? '');
-  const [elig, setElig] = useState<EligibilityResult | null>(() => patient?.eligibility ?? null);
+  const [first, setFirst] = useState('');
+  const [last, setLast] = useState('');
+  const [dob, setDob] = useState('');
+  const [phone, setPhone] = useState('');
+  const [mbi, setMbi] = useState('');
+  const [elig, setElig] = useState<Eligibility | null>(null);
   const [checking, setChecking] = useState(false);
-  const [finalState, setFinalState] = useState<PatientState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [finalState, setFinalState] = useState<string | null>(null);
+
+  // Load the pre-bound invite.
+  useEffect(() => {
+    if (!token) {
+      setLoadError('missing');
+      return;
+    }
+    api
+      .getInvite(token)
+      .then((r) => {
+        setData(r);
+        setFirst(r.patient.firstName);
+        setLast(r.patient.lastName);
+        setDob(r.patient.dob);
+        setPhone(r.patient.phone);
+        setMbi(r.patient.mbi);
+        if (r.patient.eligibility) setElig(r.patient.eligibility);
+      })
+      .catch(() => setLoadError('invalid'));
+  }, [token]);
 
   // Run the eligibility check on entering that step, if needed.
   useEffect(() => {
     if (step !== 'eligibility' || elig || checking) return;
     setChecking(true);
-    runEligibilityCheck(mbi).then((r) => {
-      setElig(r);
-      setChecking(false);
-    });
-  }, [step, elig, checking, mbi]);
+    api
+      .checkEligibility({ mbi, firstName: first, lastName: last, dob })
+      .then((r) => setElig(r))
+      .catch(() => setLoadError('eligibility'))
+      .finally(() => setChecking(false));
+  }, [step, elig, checking, mbi, first, last, dob]);
 
-  if (!invite || !patient) {
+  if (loadError && !data) {
     return (
       <div className="screen center-col fade-in" style={{ justifyContent: 'center' }}>
         <div style={{ fontSize: 54 }}>🔍</div>
@@ -54,8 +76,45 @@ export default function Join() {
     );
   }
 
-  const fromDoctor = invite.channel === 'flow-a-doctor';
-  const stepIndex = STEPS.indexOf(step);
+  if (!data) {
+    return (
+      <div className="screen center-col fade-in" style={{ justifyContent: 'center' }}>
+        <div className="pop" style={{ fontSize: 48 }}>🌅</div>
+        <h2>Opening your invite…</h2>
+      </div>
+    );
+  }
+
+  const fromDoctor = data.invite.channel === 'flow-a-doctor';
+
+  async function confirmInfo() {
+    setBusy(true);
+    try {
+      await api.confirmInvite(token!, { firstName: first, lastName: last, dob, phone, mbi });
+      setStep('eligibility');
+    } catch {
+      setLoadError('confirm');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function complete() {
+    setBusy(true);
+    try {
+      const r = await api.completeInvite(token!, {
+        eligibility: elig ?? undefined,
+        consent: { givenAt: new Date().toISOString(), method: 'e-consent' },
+      });
+      adoptSession(r.sessionToken, r.patient);
+      setFinalState(r.state);
+      setStep('done');
+    } catch {
+      setLoadError('complete');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   /* ---------- welcome ---------- */
   if (step === 'welcome') {
@@ -64,7 +123,7 @@ export default function Join() {
         <div className="grow" />
         <Sun progress={0.25} height={170} />
         <div className="center-col">
-          <h1>Welcome, {patient.firstName}.</h1>
+          <h1>Welcome, {data.patient.firstName}.</h1>
           <p className="lead">
             {fromDoctor
               ? 'Your doctor set this up for you. Everything is almost ready — just confirm a few things.'
@@ -92,17 +151,13 @@ export default function Join() {
           <JField label="Last name" value={last} onChange={setLast} />
           <JField label="Date of birth" value={dob} onChange={setDob} />
           <JField label="Phone" value={phone} onChange={setPhone} />
-
           {mbi ? (
             <JField label="Medicare number" value={mbi} onChange={setMbi} />
           ) : (
             <div className="card-flat stack">
               <label style={{ fontWeight: 700, color: 'var(--ink-soft)' }}>Medicare number</label>
               <p className="tiny">We don't have this yet. Scan your red, white & blue card.</p>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setMbi('5KP2-RT9-LM63')}
-              >
+              <button className="btn btn-secondary" onClick={() => setMbi('5KP2-RT9-LM63')}>
                 📷 Scan my Medicare card
               </button>
             </div>
@@ -112,19 +167,10 @@ export default function Join() {
         <div className="grow" />
         <button
           className="btn btn-primary btn-lg"
-          disabled={!first || !last || !dob || !phone || !mbi}
-          onClick={() => {
-            patchPatient(patient.id, {
-              firstName: first,
-              lastName: last,
-              dob,
-              phone,
-              mbi,
-            });
-            setStep('eligibility');
-          }}
+          disabled={!first || !last || !dob || !phone || !mbi || busy}
+          onClick={confirmInfo}
         >
-          Yes, that's me
+          {busy ? 'Saving…' : "Yes, that's me"}
         </button>
         <Dots count={STEPS.length} active={1} />
       </div>
@@ -157,9 +203,7 @@ export default function Join() {
           <span className={`pill ${elig.eligible ? 'pill-leaf' : 'pill-sun'}`}>{elig.plan}</span>
           <p style={{ fontSize: 21 }}>{elig.message}</p>
           {elig.eligible ? (
-            <h2 style={{ color: 'var(--leaf)' }}>
-              Your cost: ${elig.monthlyCost} per month
-            </h2>
+            <h2 style={{ color: 'var(--leaf)' }}>Your cost: ${elig.monthlyCost} per month</h2>
           ) : (
             <p className="muted">
               You'll join our free health tier — a daily check-in, always at no cost.
@@ -204,19 +248,8 @@ export default function Join() {
           )}
         </div>
         <div className="grow" />
-        <button
-          className="btn btn-primary btn-lg"
-          onClick={() => {
-            const result = finishOnboarding({
-              patientId: patient.id,
-              eligibility: elig,
-              consent: { givenAt: new Date().toISOString(), method: 'e-consent' },
-            });
-            setFinalState(result);
-            setStep('done');
-          }}
-        >
-          {billed ? 'I agree — enroll me' : 'I agree — set me up'}
+        <button className="btn btn-primary btn-lg" disabled={busy} onClick={complete}>
+          {busy ? 'Enrolling…' : billed ? 'I agree — enroll me' : 'I agree — set me up'}
         </button>
         <p className="tiny" style={{ textAlign: 'center' }}>
           Tapping the button is your signature.
@@ -228,7 +261,7 @@ export default function Join() {
 
   /* ---------- done ---------- */
   if (step === 'done' && finalState) {
-    const copy: Record<PatientState, { emoji: string; title: string; body: string }> = {
+    const copy: Record<string, { emoji: string; title: string; body: string }> = {
       covered: {
         emoji: '🌅',
         title: "You're all set!",
@@ -250,7 +283,7 @@ export default function Join() {
         body: 'Your daily check-in is ready whenever you are.',
       },
     };
-    const c = copy[finalState];
+    const c = copy[finalState] ?? copy.free;
     return (
       <div className="screen fade-in">
         <div className="grow" />
@@ -268,8 +301,7 @@ export default function Join() {
     );
   }
 
-  // unreachable, keeps the index referenced
-  return <div className="screen">Step {stepIndex + 1}</div>;
+  return null;
 }
 
 function JField({

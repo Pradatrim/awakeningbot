@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TopBar } from '../components/ui';
-import { useStore } from '../store/store';
+import { Loading, TopBar } from '../components/ui';
+import { hasSession, refreshMe, useCurrentPatient } from '../store/store';
 import type { DailyLog } from '../store/types';
 
 function rating(log: DailyLog): { ok: boolean; text: string } {
@@ -22,14 +22,20 @@ function prettyDate(iso: string): string {
 /** A calm, readable history of the patient's vitals. */
 export default function Vitals() {
   const nav = useNavigate();
-  const patient = useStore((s) =>
-    s.currentPatientId ? s.patients[s.currentPatientId] : undefined,
-  );
+  const patient = useCurrentPatient();
 
   useEffect(() => {
-    if (!patient) nav('/');
+    if (patient) return;
+    if (!hasSession()) {
+      nav('/');
+      return;
+    }
+    refreshMe().then((p) => {
+      if (!p) nav('/');
+    });
   }, [patient, nav]);
-  if (!patient) return null;
+
+  if (!patient) return <Loading label="Loading your vitals…" />;
 
   const withBp = patient.logs.filter((l) => l.bp);
   const latest = withBp[0];
