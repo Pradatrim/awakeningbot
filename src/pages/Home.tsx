@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sun from '../components/Sun';
 import { Loading } from '../components/ui';
+import VoiceBar from '../components/VoiceBar';
 import { hasSession, refreshMe, signOut, todayISO, useCurrentPatient } from '../store/store';
+import { useNarration } from '../voice';
 import type { PatientState } from '../store/types';
 
 /**
@@ -25,9 +27,7 @@ export default function Home() {
     });
   }, [patient, nav]);
 
-  if (!patient) return <Loading label="Opening your app…" />;
-
-  const log = patient.logs.find((l) => l.date === todayISO());
+  const log = patient?.logs.find((l) => l.date === todayISO());
   const done = [log?.mood !== undefined, log?.tookMeds !== undefined, log?.bp !== undefined];
   const doneCount = done.filter(Boolean).length;
   const progress = doneCount / 3;
@@ -35,6 +35,18 @@ export default function Home() {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  useNarration(
+    patient
+      ? `${greeting}, ${patient.firstName}. ${
+          complete
+            ? "Today's sunrise is complete. Wonderful work."
+            : 'Your sunrise is waiting. Tap the big orange button to start your check-in.'
+        }`
+      : undefined,
+  );
+
+  if (!patient) return <Loading label="Opening your app…" />;
 
   return (
     <div className="screen screen-scroll fade-in">
@@ -138,7 +150,9 @@ export default function Home() {
         />
       </div>
 
-      <p className="tiny" style={{ textAlign: 'center', marginTop: 4 }}>
+      <VoiceBar />
+
+      <p className="tiny" style={{ textAlign: 'center' }}>
         Medisun Care • You're never alone in this.
       </p>
     </div>

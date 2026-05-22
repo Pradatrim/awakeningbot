@@ -223,3 +223,64 @@ h3 { font-size: 21px; font-weight: 700; }
 .choice.selected { border-color: var(--sun); background: var(--sky-warm); }
 
 a { color: var(--sun-deep); }
+
+/* ---- voice guide ---- */
+.voicebar {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.voicechip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--cloud);
+  border: 2.5px solid var(--line);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.voicechip.on {
+  background: var(--sky-warm);
+  border-color: var(--sun);
+  color: var(--sun-deep);
+}
+
+/* ---- identity readback (onboarding confirm) ---- */
+.readback {
+  background: var(--cloud);
+  border-radius: var(--radius);
+  padding: 24px 22px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.readback-name {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.readback-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 0;
+  border-top: 2px solid var(--line);
+}
+.readback-row .rb-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.readback-row .rb-value {
+  font-size: 23px;
+  font-weight: 700;
+}

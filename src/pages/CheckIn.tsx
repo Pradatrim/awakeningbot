@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sun from '../components/Sun';
 import { Choice, Dots, Loading } from '../components/ui';
+import VoiceBar from '../components/VoiceBar';
 import { checkIn, hasSession, refreshMe, useCurrentPatient } from '../store/store';
+import { useNarration } from '../voice';
 import {
   isBluetoothSupported,
   readFromCuff,
@@ -15,9 +17,9 @@ type Step = 'mood' | 'meds' | 'vitals' | 'done';
 const ORDER: Step[] = ['mood', 'meds', 'vitals'];
 
 /**
- * The daily ritual — three quick steps. The blood-pressure step
- * reads from a real Bluetooth cuff when one is available, and
- * falls back to a simulated reading otherwise.
+ * The daily ritual — three quick steps, narrated aloud. The
+ * blood-pressure step reads from a real Bluetooth cuff when one
+ * is available, and falls back to a simulated reading otherwise.
  */
 export default function CheckIn() {
   const nav = useNavigate();
@@ -40,6 +42,32 @@ export default function CheckIn() {
       if (!p) nav('/');
     });
   }, [patient, nav]);
+
+  /* ---- spoken script for the current step ---- */
+  let narration: string | undefined;
+  if (patient) {
+    if (step === 'done') {
+      narration = `You did it, ${patient.firstName}! Today's sunrise is complete.${
+        alerts.length ? ' Your care team has seen your numbers.' : ''
+      }`;
+    } else if (step === 'mood') {
+      narration = 'How are you feeling today? Tap the answer that fits best.';
+    } else if (step === 'meds') {
+      narration = 'Did you take your morning medicine? Tap yes, or not yet.';
+    } else if (reading) {
+      narration = `Your blood pressure is ${reading.sys} over ${reading.dia}.${
+        alerts.length
+          ? " We've shared this with your care team."
+          : ' That is a healthy reading.'
+      } Tap finish my check-in.`;
+    } else if (measuring) {
+      narration = 'Measuring now. Stay relaxed and still.';
+    } else {
+      narration =
+        "Now let's check your blood pressure. Put on your cuff, rest your arm, then tap the button below.";
+    }
+  }
+  useNarration(narration);
 
   if (!patient) return <Loading label="Opening your check-in…" />;
 
@@ -84,6 +112,7 @@ export default function CheckIn() {
     const flagged = alerts.length > 0;
     return (
       <div className="screen fade-in">
+        <VoiceBar line={narration} />
         <div className="grow" />
         <Sun progress={1} height={190} />
         <div className="center-col">
@@ -116,6 +145,7 @@ export default function CheckIn() {
 
   return (
     <div className="screen screen-scroll fade-in">
+      <VoiceBar line={narration} />
       <Sun progress={progress} height={130} />
       <Dots count={3} active={idx} />
 
