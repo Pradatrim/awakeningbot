@@ -10,6 +10,8 @@ import Vitals from './pages/Vitals';
 import ClinicianLogin from './pages/ClinicianLogin';
 import ClinicianPanel from './pages/ClinicianPanel';
 import ClinicianPatient from './pages/ClinicianPatient';
+import ClaimsList from './pages/ClaimsList';
+import ClaimDetail from './pages/ClaimDetail';
 
 export default function App() {
   return (
@@ -26,6 +28,8 @@ export default function App() {
         <Route path="/clinician/login" element={<ClinicianLogin />} />
         <Route path="/clinician" element={<ClinicianPanel />} />
         <Route path="/clinician/patient/:id" element={<ClinicianPatient />} />
+        <Route path="/clinician/billing" element={<ClaimsList />} />
+        <Route path="/clinician/claim/:id" element={<ClaimDetail />} />
         <Route path="*" element={<Landing />} />
       </Routes>
     </div>

@@ -64,6 +64,10 @@ export default function ClinicianPanel() {
           : '✓ All patients reviewed — nothing flagged'}
       </div>
 
+      <button className="btn btn-secondary" onClick={() => nav('/clinician/billing')}>
+        🧾 RPM claims & billing
+      </button>
+
       {error && (
         <p className="tiny" style={{ color: 'var(--alert)' }}>
           {error}

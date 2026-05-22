@@ -8,12 +8,15 @@
 
 import type {
   Alert,
+  BillingAssessment,
+  Claim,
   Consent,
   DailyLog,
   Eligibility,
   Invite,
   PanelPatient,
   Patient,
+  TimeLog,
 } from './store/types';
 
 const PATIENT_KEY = 'medisun.session';
@@ -169,5 +172,51 @@ export const api = {
     return call<{ alert: Alert }>('POST', `/clinician/patient/${patientId}/request-call`, {
       auth: 'clinician',
     });
+  },
+
+  /* billing */
+  billingAssessment(patientId: string, period?: string) {
+    const q = period ? `?period=${period}` : '';
+    return call<{ assessment: BillingAssessment }>(
+      'GET',
+      `/billing/assessment/${patientId}${q}`,
+      { auth: 'clinician' },
+    ).then((r) => r.assessment);
+  },
+  logTime(input: { patientId: string; minutes: number; note?: string }) {
+    return call<{ timeLog: TimeLog; assessment: BillingAssessment }>('POST', '/billing/time', {
+      body: input,
+      auth: 'clinician',
+    });
+  },
+  timeLogs(patientId: string) {
+    return call<{ timeLogs: TimeLog[] }>('GET', `/billing/time/${patientId}`, {
+      auth: 'clinician',
+    }).then((r) => r.timeLogs);
+  },
+  generateClaim(input: { patientId: string; period?: string }) {
+    return call<{ claim: Claim }>('POST', '/billing/claims', { body: input, auth: 'clinician' });
+  },
+  claims(period?: string) {
+    const q = period ? `?period=${period}` : '';
+    return call<{ claims: Claim[] }>('GET', `/billing/claims${q}`, { auth: 'clinician' }).then(
+      (r) => r.claims,
+    );
+  },
+  claim(id: string) {
+    return call<{ claim: Claim }>('GET', `/billing/claims/${id}`, { auth: 'clinician' }).then(
+      (r) => r.claim,
+    );
+  },
+  submitClaim(id: string) {
+    return call<{ claim: Claim }>('POST', `/billing/claims/${id}/submit`, { auth: 'clinician' }).then(
+      (r) => r.claim,
+    );
+  },
+  remitClaim(id: string, outcome?: 'paid' | 'denied') {
+    return call<{ claim: Claim }>('POST', `/billing/claims/${id}/remit`, {
+      body: { outcome },
+      auth: 'clinician',
+    }).then((r) => r.claim);
   },
 };

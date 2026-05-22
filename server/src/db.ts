@@ -110,6 +110,55 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_logs_patient ON daily_logs(patient_id, date DESC);
   CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, severity);
+
+  -- Clinical time logged against a patient, used to substantiate
+  -- the 99457 / 99458 RPM treatment-management codes.
+  CREATE TABLE IF NOT EXISTS clinical_time (
+    id            TEXT PRIMARY KEY,
+    patient_id    TEXT NOT NULL REFERENCES patients(id),
+    clinician_id  TEXT,
+    clinician_name TEXT,
+    minutes       INTEGER NOT NULL,
+    note          TEXT,
+    service_date  TEXT NOT NULL,            -- YYYY-MM-DD
+    created_at    TEXT NOT NULL
+  );
+
+  -- An RPM claim for one patient for one billing period (month).
+  CREATE TABLE IF NOT EXISTS claims (
+    id                     TEXT PRIMARY KEY,
+    patient_id             TEXT NOT NULL REFERENCES patients(id),
+    period                 TEXT NOT NULL,   -- YYYY-MM
+    status                 TEXT NOT NULL,   -- draft | submitted | paid | denied
+    payer                  TEXT NOT NULL,
+    diagnosis_code         TEXT NOT NULL,
+    total_charge           REAL NOT NULL,
+    payer_paid             REAL,
+    patient_responsibility REAL,
+    control_number         TEXT,
+    x12_837                TEXT,
+    denial_reason          TEXT,
+    created_at             TEXT NOT NULL,
+    submitted_at           TEXT,
+    paid_at                TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS claim_lines (
+    id           TEXT PRIMARY KEY,
+    claim_id     TEXT NOT NULL REFERENCES claims(id),
+    cpt          TEXT NOT NULL,
+    description  TEXT NOT NULL,
+    units        INTEGER NOT NULL,
+    rate         REAL NOT NULL,
+    charge       REAL NOT NULL,
+    dx_code      TEXT NOT NULL,
+    service_from TEXT NOT NULL,
+    service_to   TEXT NOT NULL,
+    supporting   TEXT
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_time_patient ON clinical_time(patient_id, service_date);
+  CREATE INDEX IF NOT EXISTS idx_claims_patient ON claims(patient_id, period);
 `);
 
 let seq = 0;

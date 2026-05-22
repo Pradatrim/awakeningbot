@@ -115,6 +115,107 @@ export function mapAlert(r: any): ApiAlert {
   };
 }
 
+export interface ApiClaimLine {
+  id: string;
+  cpt: string;
+  description: string;
+  units: number;
+  rate: number;
+  charge: number;
+  dxCode: string;
+  serviceFrom: string;
+  serviceTo: string;
+  supporting?: string;
+}
+
+export interface ApiClaim {
+  id: string;
+  patientId: string;
+  patientName: string;
+  period: string;
+  status: string;
+  payer: string;
+  diagnosisCode: string;
+  totalCharge: number;
+  payerPaid?: number;
+  patientResponsibility?: number;
+  controlNumber?: string;
+  x12_837?: string;
+  denialReason?: string;
+  createdAt: string;
+  submittedAt?: string;
+  paidAt?: string;
+  lines: ApiClaimLine[];
+}
+
+export interface ApiTimeLog {
+  id: string;
+  patientId: string;
+  clinicianName?: string;
+  minutes: number;
+  note?: string;
+  serviceDate: string;
+  createdAt: string;
+}
+
+export function mapClaimLine(r: any): ApiClaimLine {
+  return {
+    id: r.id,
+    cpt: r.cpt,
+    description: r.description,
+    units: r.units,
+    rate: r.rate,
+    charge: r.charge,
+    dxCode: r.dx_code,
+    serviceFrom: r.service_from,
+    serviceTo: r.service_to,
+    supporting: r.supporting ?? undefined,
+  };
+}
+
+export function mapTimeLog(r: any): ApiTimeLog {
+  return {
+    id: r.id,
+    patientId: r.patient_id,
+    clinicianName: r.clinician_name ?? undefined,
+    minutes: r.minutes,
+    note: r.note ?? undefined,
+    serviceDate: r.service_date,
+    createdAt: r.created_at,
+  };
+}
+
+/** Assembles a claim with its service lines. */
+export function loadClaim(claimId: string): ApiClaim | undefined {
+  const c: any = db.prepare('SELECT * FROM claims WHERE id = ?').get(claimId);
+  if (!c) return undefined;
+  const p: any = db.prepare('SELECT first_name, last_name FROM patients WHERE id = ?').get(
+    c.patient_id,
+  );
+  const lines = db
+    .prepare('SELECT * FROM claim_lines WHERE claim_id = ? ORDER BY cpt')
+    .all(claimId);
+  return {
+    id: c.id,
+    patientId: c.patient_id,
+    patientName: p ? `${p.first_name} ${p.last_name}` : 'Unknown',
+    period: c.period,
+    status: c.status,
+    payer: c.payer,
+    diagnosisCode: c.diagnosis_code,
+    totalCharge: c.total_charge,
+    payerPaid: c.payer_paid ?? undefined,
+    patientResponsibility: c.patient_responsibility ?? undefined,
+    controlNumber: c.control_number ?? undefined,
+    x12_837: c.x12_837 ?? undefined,
+    denialReason: c.denial_reason ?? undefined,
+    createdAt: c.created_at,
+    submittedAt: c.submitted_at ?? undefined,
+    paidAt: c.paid_at ?? undefined,
+    lines: lines.map(mapClaimLine),
+  };
+}
+
 /** Assembles the full patient object from every related table. */
 export function loadPatient(patientId: string): ApiPatient | undefined {
   const p: any = db.prepare('SELECT * FROM patients WHERE id = ?').get(patientId);

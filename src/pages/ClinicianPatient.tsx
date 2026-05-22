@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loading, TopBar } from '../components/ui';
+import BillingCard from '../components/BillingCard';
 import { api, getClinicianToken } from '../api';
 import type { Alert, DailyLog, Patient } from '../store/types';
 
@@ -187,7 +188,9 @@ export default function ClinicianPatient() {
         </div>
       )}
 
-      <button className="btn btn-primary btn-lg" disabled={busy} onClick={requestCall}>
+      <BillingCard patientId={patient.id} />
+
+      <button className="btn btn-secondary" disabled={busy} onClick={requestCall}>
         📞 Request an outreach call
       </button>
 

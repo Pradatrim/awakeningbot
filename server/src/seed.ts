@@ -10,11 +10,13 @@ export const DEMO_ELDER_ID = 'pt_demo_elder';
 export const DEMO_CLINICIAN = { email: 'nurse@medisun.care', password: 'sunrise' };
 
 export const DEMO_FLAGGED_ID = 'pt_demo_flagged';
+export const DEMO_BILLING_ID = 'pt_demo_billing';
 
 export function ensureSeed(): void {
   seedClinician();
   seedElder();
   seedFlaggedPatient();
+  seedBillingPatient();
 }
 
 function seedClinician(): void {
@@ -151,4 +153,76 @@ function seedFlaggedPatient(): void {
     `INSERT INTO alerts (id, patient_id, log_id, severity, message, status, created_at)
      VALUES (?, ?, 'log_flag_1', 'high', 'Blood pressure very high — 168/103.', 'open', ?)`,
   ).run('alt_demo_flagged', DEMO_FLAGGED_ID, now());
+}
+
+/** A patient with a full billable month — 21 reading days and
+ *  logged clinical time — so a complete RPM claim can be built. */
+function seedBillingPatient(): void {
+  if (db.prepare('SELECT 1 FROM patients WHERE id = ?').get(DEMO_BILLING_ID)) return;
+
+  const orderId = 'ord_demo_billing';
+  db.prepare(
+    `INSERT INTO patients (id, state, channel, first_name, last_name, dob, phone, mbi,
+     order_id, enrolled_at, streak, created_at)
+     VALUES (?, 'covered', 'flow-a-doctor', 'Margaret', 'Sun', '1947-02-14',
+     '(555) 770-3321', '9XK5-PA2-TR60', ?, ?, 21, ?)`,
+  ).run(DEMO_BILLING_ID, orderId, now(), now());
+
+  db.prepare(
+    `INSERT INTO orders (id, patient_id, source, ordering_provider, diagnosis, created_at)
+     VALUES (?, ?, 'doctor-referral', 'Dr. Lopez — Sunrise Family Medicine',
+     'Type 2 diabetes mellitus (E11.9)', ?)`,
+  ).run(orderId, DEMO_BILLING_ID, now());
+
+  db.prepare(
+    `INSERT INTO eligibility (id, patient_id, eligible, plan, monthly_cost, message, checked_at)
+     VALUES (?, ?, 1, 'Medicare Part B', 0, 'Covered.', ?)`,
+  ).run('elg_demo_billing', DEMO_BILLING_ID, now());
+
+  db.prepare(
+    `INSERT INTO consents (id, patient_id, method, given_at) VALUES (?, ?, 'e-consent', ?)`,
+  ).run('con_demo_billing', DEMO_BILLING_ID, now());
+
+  // 21 reading days within the current calendar month — enough to
+  // satisfy the 99454 16-day rule.
+  const period = new Date().toISOString().slice(0, 7);
+  const insertLog = db.prepare(
+    `INSERT INTO daily_logs (id, patient_id, date, mood, took_meds, bp_sys, bp_dia,
+     heart_rate, complete, source, created_at)
+     VALUES (?, ?, ?, 'great', 1, ?, ?, ?, 1, 'bluetooth-cuff', ?)`,
+  );
+  for (let day = 1; day <= 21; day++) {
+    const date = `${period}-${String(day).padStart(2, '0')}`;
+    insertLog.run(
+      `log_bill_${day}`,
+      DEMO_BILLING_ID,
+      date,
+      122 + (day % 9),
+      76 + (day % 6),
+      66 + (day % 8),
+      now(),
+    );
+  }
+
+  // 45 minutes of clinical time — covers 99457 plus one 99458 unit.
+  const insertTime = db.prepare(
+    `INSERT INTO clinical_time (id, patient_id, clinician_id, clinician_name, minutes, note,
+     service_date, created_at) VALUES (?, ?, 'cl_demo', 'Nurse Maria Alvarez, RN', ?, ?, ?, ?)`,
+  );
+  insertTime.run(
+    'tim_demo_1',
+    DEMO_BILLING_ID,
+    25,
+    'Reviewed BP trend, adjusted care plan, called patient.',
+    `${period}-10`,
+    now(),
+  );
+  insertTime.run(
+    'tim_demo_2',
+    DEMO_BILLING_ID,
+    20,
+    'Medication reconciliation and education call.',
+    `${period}-18`,
+    now(),
+  );
 }

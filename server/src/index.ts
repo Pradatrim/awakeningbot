@@ -12,6 +12,7 @@ import { enroll } from './routes/enroll.js';
 import { patient } from './routes/patient.js';
 import { clinician } from './routes/clinician.js';
 import { eligibility } from './routes/eligibility.js';
+import { billing } from './routes/billing.js';
 import { issueToken } from './auth.js';
 import { loadPatient } from './model.js';
 import { recomputeStreak } from './logic.js';
@@ -29,6 +30,7 @@ app.use('/api/enroll', enroll);
 app.use('/api/patient', patient);
 app.use('/api/clinician', clinician);
 app.use('/api/eligibility', eligibility);
+app.use('/api/billing', billing);
 
 /**
  * Dev convenience — signs in as the seeded demo elder so the

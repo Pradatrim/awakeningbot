@@ -76,6 +76,80 @@ export interface Invite {
   consumedAt?: string;
 }
 
+/* ---- billing ---- */
+
+export interface CptAssessment {
+  code: string;
+  label: string;
+  rule: string;
+  rate: number;
+  billable: boolean;
+  units: number;
+  charge: number;
+  reason: string;
+}
+
+export interface BillingAssessment {
+  patientId: string;
+  patientName: string;
+  period: string;
+  periodFrom: string;
+  periodTo: string;
+  eligibleToBill: boolean;
+  blockReason?: string;
+  readingDays: number;
+  clinicalMinutes: number;
+  priorSetupBilled: boolean;
+  diagnosis: string;
+  dxCode: string;
+  payer: string;
+  codes: CptAssessment[];
+  billableTotal: number;
+}
+
+export interface ClaimLine {
+  id: string;
+  cpt: string;
+  description: string;
+  units: number;
+  rate: number;
+  charge: number;
+  dxCode: string;
+  serviceFrom: string;
+  serviceTo: string;
+  supporting?: string;
+}
+
+export interface Claim {
+  id: string;
+  patientId: string;
+  patientName: string;
+  period: string;
+  status: 'draft' | 'submitted' | 'paid' | 'denied';
+  payer: string;
+  diagnosisCode: string;
+  totalCharge: number;
+  payerPaid?: number;
+  patientResponsibility?: number;
+  controlNumber?: string;
+  x12_837?: string;
+  denialReason?: string;
+  createdAt: string;
+  submittedAt?: string;
+  paidAt?: string;
+  lines: ClaimLine[];
+}
+
+export interface TimeLog {
+  id: string;
+  patientId: string;
+  clinicianName?: string;
+  minutes: number;
+  note?: string;
+  serviceDate: string;
+  createdAt: string;
+}
+
 /** Summary row on the clinician panel. */
 export interface PanelPatient {
   id: string;
